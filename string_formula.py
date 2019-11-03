@@ -26,31 +26,35 @@ class StringFormulaReader(object):
     def create_formula(self):
 
         # test area https://regex101.com/r/QYbGlh/1
-        regex = re.compile(r"([a-zA-Z]+)|(\d+)|([+\-*/^])|(.)")
+        regex = re.compile(r"(log\d*)|([a-zA-Z]+)|(\d+)|([+\-*/^])|(.)")
 
         matches = re.finditer(regex, self.string_formula)
 
         for match in matches:
 
-            # if the match is a variable
             if match.group(1) is not None:
                 value = match.group(1)
+                self.formula.append(value)
+
+            # if the match is a variable
+            elif match.group(2) is not None:
+                value = match.group(2)
                 self.formula.append(value)
                 self.variables[value] = None
 
             # if the match is a number
-            elif match.group(2) is not None:
-                value = match.group(2)
+            elif match.group(3) is not None:
+                value = match.group(3)
                 self.formula.append(float(value))
 
             # if the match is a action
-            elif match.group(3) is not None:
-                value = match.group(3)
+            elif match.group(4) is not None:
+                value = match.group(4)
                 self.formula.append(self.actions[value])
 
             # if the match is anything else
             else:
-                value = match.group(4)
+                value = match.group(5)
                 self.formula.append(value)
 
     def link_brackets(self):
@@ -79,18 +83,18 @@ class StringFormulaReader(object):
         if formula == ():
             formula = self.formula
 
-        rekenregels = ["∑", r'\(\d+', self.power, "√", self.multiply, self.divide,
-                       self.add, self.subtract]
+        calculation_rules = ["∑", r'\(\d+', r'log\d*', self.power, "√", self.multiply, self.divide,
+                             self.add, self.subtract]
 
         if None not in self.variables.values():
-            for methode in rekenregels:
-                while re.search(str(methode), str(formula)):
+            for method in calculation_rules:
+                while re.search(str(method), str(formula)):
                     for index, action in enumerate(formula):
-                        if isinstance(action, str) and action.startswith("("):
-                            self.brackets(formula, index)
+                        if re.search(str(method), str(action)):
+                            if re.search(calculation_rules[1], str(action)):
+                                self.brackets(formula, index)
 
-                        elif action == methode:
-                            if action == '∑':
+                            elif action == '∑':
                                 self.sum(formula, index)
 
                             elif action == "√":
@@ -100,6 +104,12 @@ class StringFormulaReader(object):
 
                                 formula.insert(index, self.answer)
 
+                            elif re.search(calculation_rules[2], str(action)):
+                                self.logarithm(index)
+                                formula.pop(index+1)
+                                formula.pop(index)
+
+                                formula.insert(index, self.answer)
                             else:
                                 value1 = formula[index-1]
                                 value2 = formula[index+1]
@@ -115,7 +125,6 @@ class StringFormulaReader(object):
 
                                 action(value1, value2)
                                 formula.insert(index-1, self.answer)
-                            # print(formula)
                             break
 
         else:
@@ -158,6 +167,20 @@ class StringFormulaReader(object):
         print("square_root")
         value1 = self.formula[index+1]
         self.answer = math.sqrt(value1)
+        print(f"√{value1}={self.answer}")
+
+    def logarithm(self, index):
+        print("logarithm")
+        value1 = self.formula[index+1]
+        if value1 in self.variables:
+            value1 = self.variables[value1]
+
+        log_exponential = self.formula[index].lower().replace("log", "")
+        if not log_exponential:
+            log_exponential = 10
+        self.answer = math.log(value1, float(log_exponential))
+
+        print("log{}({})={}".format(log_exponential, value1, self.answer))
 
     def brackets(self, formula, index):
         print("Brackets begin")
@@ -165,7 +188,7 @@ class StringFormulaReader(object):
         print(formula[index])
         bracket_number = formula[index].replace("(", "")
 
-        # find the start en end index of this bracked
+        # find the start en end index of this bracket
         start = formula.index("({}".format(bracket_number))
         end = formula.index("){}".format(bracket_number))
 
@@ -181,7 +204,6 @@ class StringFormulaReader(object):
 
         # insert the answer in the formula
         formula.insert(start, self.answer)
-        print(self.formula)
 
         print("Brackets end")
 
@@ -196,63 +218,67 @@ class StringFormulaReader(object):
         s_formula = formula[start+1:end]
 
         # variables in sum
-        print(s_formula)
         variables = [x for x in self.variables.keys() if x in s_formula]
 
-        while "∑" in s_formula:
-            start2 = formula.index("{%s" % str(bracket_number+1))
-            end2 = formula.index("}%s" % str(bracket_number+1))
-            s2_formula = formula[start2-1:end2+1]
-            self.execute(s2_formula)
+        answers = []
 
-            for rm in range(start2-1, end2+1):
-                formula.pop(start2-1)
-
-            formula.insert(start2-1, self.answer)
-            return
-
-        anwsers = []
-        for x in range(self.variables["n"]):
-            s_formula = formula[start+1:end]
-            for y in s_formula:
-                if y in variables:
-                    i = s_formula.index(y)
-                    s_formula.pop(i)
-                    if isinstance(self.variables[y], (list, tuple)):
-                        s_formula.insert(i, self.variables[y][x])
-                    else:
-                        s_formula.insert(i, self.variables[y])
-
+        if "∑" in s_formula:
+            start = formula.index("{%s" % str(bracket_number+1))
+            end = formula.index("}%s" % str(bracket_number+1))
+            s_formula = formula[start-1:end+1]
             self.execute(s_formula)
-            anwsers.append(self.answer)
-        print("{}={}".format("+".join([str(x) for x in anwsers]), sum(anwsers)))
 
-        print(formula[end])
+            answers.append(self.answer)
+        else:
+            for x in range(self.variables["n"]):
+                s_formula = formula[start+1:end]
+                for y in s_formula:
+                    if y in variables:
+                        i = s_formula.index(y)
+                        s_formula.pop(i)
+                        if isinstance(self.variables[y], (list, tuple)):
+                            s_formula.insert(i, self.variables[y][x])
+                        else:
+                            s_formula.insert(i, self.variables[y])
+
+                self.execute(s_formula)
+                answers.append(self.answer)
+
+            print("sum")
+            print("{}={}".format("+".join([str(x) for x in answers]), sum(answers)))
+
+            print(formula[end])
+
         for rm in range(start-1, end+1):
             formula.pop(start-1)
 
-        formula.insert(start-1, sum(anwsers))
+        formula.insert(start-1, sum(answers))
 
 
 def main():
-    x = StringFormulaReader("x*3/5+20+2^(z*((5+3)*3))")
-    x.variables["x"] = 5
-    x.variables["z"] = 10
-    #x.execute()
-    print(x.answer)
+    formula1 = StringFormulaReader("x*3/5+20+2^(z*((5+3)*3))")
+    formula1.variables["x"] = 5
+    formula1.variables["z"] = 10
+    formula1.execute()
 
-    y = StringFormulaReader("∑{x}/n")
-    y.variables["x"] = [3, 5, 7, 4, 6]
-    y.variables["n"] = len(y.variables["x"])
-    #y.execute()
-    print(y.answer)
+    mean = StringFormulaReader("∑{x}/n")
+    mean.variables["x"] = [4, 5, 3, 6, 2, 6, 3, 6]
+    mean.variables["n"] = len(mean.variables["x"])
+    mean.execute()
 
-    z = StringFormulaReader("√(∑{(w-(∑{x}/n))*(w-(∑{x}/n))}/n)")
-    z.variables["w"] = [4, 5, 3, 6, 2, 6, 3, 6]
-    z.variables["x"] = z.variables["w"]
-    z.variables["n"] = len(z.variables["w"])
-    z.execute()
-    print(z.answer)
+    standard_deviation = StringFormulaReader("√(∑{(w-∑{w}/n)^2}/n)")
+    standard_deviation.variables["w"] = [4, 5, 3, 6, 2, 6, 3, 6]
+    standard_deviation.variables["n"] = len(standard_deviation.variables["w"])
+    standard_deviation.execute()
+
+    logarithm = StringFormulaReader("log(x)")
+    logarithm.variables["x"] = 100
+    logarithm.execute()
+
+    print("standard deviation =", round(standard_deviation.answer, 4))
+    print("Mean =", round(mean.answer, 4))
+    print("Formula 1 =", round(formula1.answer, 4))
+    print("Logarithm = ", round(logarithm.answer, 4))
 
 
 if __name__ == "__main__":
