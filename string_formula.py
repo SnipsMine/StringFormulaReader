@@ -26,7 +26,7 @@ class StringFormulaReader:
     def create_formula(self):
 
         # test area https://regex101.com/r/QYbGlh/2
-        regex = re.compile(r"(log\d*)|(if)|([a-z]+)|(\d+)|([+\-*/^])|(.)")
+        regex = re.compile(r"([lL][oO][gG]\d*)|([iI][fF])|([a-zA-Z]+\d*)|(\d+)|([+\-*/^])|(.)")
 
         matches = re.finditer(regex, self.string_formula)
 
@@ -136,7 +136,9 @@ class StringFormulaReader:
                             break
 
         else:
-            print("there is a variable that has no value")
+            for var in self.variables:
+                if self.variables[var] is None:
+                    print(f"The variable {var} has no value")
 
         if len(formula) == 1:
             if formula[0] in self.variables:
@@ -275,19 +277,18 @@ class StringFormulaReader:
         end = formula.index("}%s" % str(bracket_number))
         c_formula = formula[start+1:end]
 
-        print(c_formula)
-
-        if re.search(r"{\d+", str(c_formula)):
-            start = formula.index("{%s" % str(bracket_number+1))
-            end = formula.index("}%s" % str(bracket_number+1))
-            c_formula = formula[start-1:end+1]
-            self.execute(c_formula)
-        else:
-            counter = 0
-            form = [[], [], [], []]
-            logical = ""
-            for x in c_formula:
+        b_number = bracket_number
+        counter = 0
+        form = [[], [], [], []]
+        logical = ""
+        for x in c_formula:
+            if isinstance(x, str) and x.startswith("{"):
+                b_number += 1
+            elif isinstance(x, str) and x.startswith("}"):
+                b_number -= 1
+            if b_number == bracket_number:
                 if x == ";":
+
                     counter += 1
                     continue
 
@@ -296,24 +297,22 @@ class StringFormulaReader:
                     logical = x
                     continue
 
-                form[counter].append(x)
+            form[counter].append(x)
 
-            for f in form[0:2]:
-                self.execute(f)
+        for f in form[0:2]:
+            self.execute(f)
 
-            print(form)
+        value1 = form[0][0]
+        value2 = form[1][0]
 
-            value1 = form[0][0]
-            value2 = form[1][0]
+        logic[logical](value1, value2)
 
-            logic[logical](value1, value2)
+        print("The statement was", self.answer)
 
-            if self.answer:
-                self.execute(form[2])
-            else:
-                self.execute(form[3])
-
-            print(self.answer)
+        if self.answer:
+            self.execute(form[2])
+        else:
+            self.execute(form[3])
 
         for rm in range(start-1, end+1):
             formula.pop(start-1)
@@ -343,32 +342,91 @@ def main():
     formula1 = StringFormulaReader("x*3/5+20+2^(z*((5+3)*3))")
     formula1.variables["x"] = 5
     formula1.variables["z"] = 10
-    formula1.execute()
+    #formula1.execute()
 
     mean = StringFormulaReader("∑{x}/n")
     mean.variables["x"] = [4, 5, 3, 6, 2, 6, 3, 6]
     mean.variables["n"] = len(mean.variables["x"])
-    mean.execute()
+    #mean.execute()
 
     standard_deviation = StringFormulaReader("√(∑{(w-∑{w}/n)^2}/n)")
     standard_deviation.variables["w"] = [4, 5, 3, 6, 2, 6, 3, 6]
     standard_deviation.variables["n"] = len(standard_deviation.variables["w"])
-    standard_deviation.execute()
+    #standard_deviation.execute()
 
     logarithm = StringFormulaReader("log(x)")
     logarithm.variables["x"] = 100
-    logarithm.execute()
+    #logarithm.execute()
 
     conditional = StringFormulaReader("if{x<if{x>y*2;x;y};x;y}")
     conditional.variables["x"] = 10
     conditional.variables["y"] = 11
-    conditional.execute()
+    #conditional.execute()
+
+    theoretical_mass = StringFormulaReader(
+                                            "if{d1>0;"
+                                                "if{d2>0;"
+                                                    "if{m1*d1/M1>m2*d2/M2;"
+                                                        "(m2*d2/M2)*(fs/fg)*Mg;"
+                                                        "(m1*d1/M1)*(fs/fg)*Mg"
+                                                    "};"
+                                                    "if{m1*d1/M1>m2/M2;"
+                                                        "(m2/M2)*(fs/fg)*Mg;"
+                                                        "(m1*d1/M1)*(fs/fg)*Mg"
+                                                    "}"
+                                                "};"
+                                                "if{d2>0;"
+                                                    "if{m1/M1>m2*d2/M2;"
+                                                        "(m2*d2/M2)*(fs/fg)*Mg;"
+                                                        "m1/M1*(fs/fg)*Mg"
+                                                    "};"
+                                                    "if{m1/M1>m2/M2;"
+                                                        "(m2/M2)*(fs/fg)*Mg;"
+                                                        "(m1/M1)*(fs/fg)*Mg"
+                                                    "}"
+                                                "}"
+                                            "}"
+                                           )
+    theoretical_mass.variables["m1"] = 100  # mass 1
+    theoretical_mass.variables["M1"] = 20  # molarity 1
+    theoretical_mass.variables["d1"] = 0  # density 1
+
+    theoretical_mass.variables["m2"] = 19  # mass 2
+    theoretical_mass.variables["M2"] = 40  # molarity 2
+    theoretical_mass.variables["d2"] = 1.09  # density 2
+
+    theoretical_mass.variables["fs"] = 1  # reactie verhouding stof
+    theoretical_mass.variables["fg"] = 1  # reactie verhouding gewild
+
+    theoretical_mass.variables["Mg"] = 50  # molarity of the product
+
+    theoretical_mass.execute()
+    """
+    mass 1 in ml if{d1=true;if{d2=true;if{m1*d1/M1>m2*d2/M2;"m2*d2/M2*(fs/fg)*Mg";"m1*d1/M1*(fs/fg)*Mg"};if{m1*d1/M1>m2/M2;"m2/M2*(fs/fg)*Mg";"m1*d1/M1*(fs/fg)*Mg"}};if{d2=true;if{m1/M1>m2*d2/M2;"m2*d2/M2*(fs/fg)*Mg";"m1/M1*(fs/fg)*Mg"};if{m1/M1>m2/M2;"m2/M2*(fs/fg)*Mg";"m1/M1*(fs/fg)*Mg"}}}
+        mass 2 in ml if{d2=true;if{m1*d1/M1>m2*d2/M2;"m2*d2/M2*(fs/fg)*Mg";"m1*d1/M1*(fs/fg)*Mg"};if{m1*d1/M1>m2/M2;"m2/M2*(fs/fg)*Mg";"m1*d1/M1*(fs/fg)*Mg"}}
+            mass 1 > mass 2 if{m1*d1/M1>m2*d2/M2;"m2*d2/M2*(fs/fg)*Mg";"m1*d1/M1*(fs/fg)*Mg"}
+        mass 2 in gram
+            mass 1 > mass 2 if{m1*d1/M1>m2/M2;"m2/M2*(fs/fg)*Mg";"m1*d1/M1*(fs/fg)*Mg"}
+
+    mass 1 in gram
+        mass 2 in ml if{d2=true;if{m1/M1>m2*d2/M2;"m2*d2/M2*(fs/fg)*Mg";"m1/M1*(fs/fg)*Mg"};if{m1/M1>m2/M2;"m2/M2*(fs/fg)*Mg";"m1/M1*(fs/fg)*Mg"}}
+            mass 1 > mass 2 if{m1/M1>m2*d2/M2;"m2*d2/M2*(fs/fg)*Mg";"m1/M1*(fs/fg)*Mg"}
+                "m2*d2/M2*(fs/fg)*Mg"
+            mass 1 < mass 2
+                "m1/M1*(fs/fg)*Mg"
+        mass 2 in gram
+            mass 1 > mass 2 if{m1/M1>m2/M2;"m2/M2*(fs/fg)*Mg";"m1/M1*(fs/fg)*Mg"}
+                "m2/M2*(fs/fg)*Mg"
+            mass 1 < mass 2
+                "m1/M1*(fs/fg)*Mg"
+    """
 
     print("standard deviation =", round(standard_deviation.answer, 4))
     print("Mean =", round(mean.answer, 4))
     print("Formula 1 =", round(formula1.answer, 4))
     print("Logarithm = ", round(logarithm.answer, 4))
     print("Conditional = ", conditional.answer)
+    print("Theoretical mass =", round(theoretical_mass.answer, 4))
 
 
 if __name__ == "__main__":
