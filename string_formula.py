@@ -340,28 +340,28 @@ class StringFormulaReader:
 
 def main():
     formula1 = StringFormulaReader("x*3/5+20+2^(z*((5+3)*3))")
-    formula1.variables["x"] = 5
-    formula1.variables["z"] = 10
-    #formula1.execute()
+    formula1.variables["x"] = 10
+    formula1.variables["z"] = 5
+    formula1.execute()
 
     mean = StringFormulaReader("∑{x}/n")
     mean.variables["x"] = [4, 5, 3, 6, 2, 6, 3, 6]
     mean.variables["n"] = len(mean.variables["x"])
-    #mean.execute()
+    mean.execute()
 
     standard_deviation = StringFormulaReader("√(∑{(w-∑{w}/n)^2}/n)")
     standard_deviation.variables["w"] = [4, 5, 3, 6, 2, 6, 3, 6]
     standard_deviation.variables["n"] = len(standard_deviation.variables["w"])
-    #standard_deviation.execute()
+    standard_deviation.execute()
 
     logarithm = StringFormulaReader("log(x)")
     logarithm.variables["x"] = 100
-    #logarithm.execute()
+    logarithm.execute()
 
     conditional = StringFormulaReader("if{x<if{x>y*2;x;y};x;y}")
     conditional.variables["x"] = 10
     conditional.variables["y"] = 11
-    #conditional.execute()
+    conditional.execute()
 
     theoretical_mass = StringFormulaReader(
                                             "if{d1>0;"
@@ -401,25 +401,6 @@ def main():
     theoretical_mass.variables["Mg"] = 50  # molarity of the product
 
     theoretical_mass.execute()
-    """
-    mass 1 in ml if{d1=true;if{d2=true;if{m1*d1/M1>m2*d2/M2;"m2*d2/M2*(fs/fg)*Mg";"m1*d1/M1*(fs/fg)*Mg"};if{m1*d1/M1>m2/M2;"m2/M2*(fs/fg)*Mg";"m1*d1/M1*(fs/fg)*Mg"}};if{d2=true;if{m1/M1>m2*d2/M2;"m2*d2/M2*(fs/fg)*Mg";"m1/M1*(fs/fg)*Mg"};if{m1/M1>m2/M2;"m2/M2*(fs/fg)*Mg";"m1/M1*(fs/fg)*Mg"}}}
-        mass 2 in ml if{d2=true;if{m1*d1/M1>m2*d2/M2;"m2*d2/M2*(fs/fg)*Mg";"m1*d1/M1*(fs/fg)*Mg"};if{m1*d1/M1>m2/M2;"m2/M2*(fs/fg)*Mg";"m1*d1/M1*(fs/fg)*Mg"}}
-            mass 1 > mass 2 if{m1*d1/M1>m2*d2/M2;"m2*d2/M2*(fs/fg)*Mg";"m1*d1/M1*(fs/fg)*Mg"}
-        mass 2 in gram
-            mass 1 > mass 2 if{m1*d1/M1>m2/M2;"m2/M2*(fs/fg)*Mg";"m1*d1/M1*(fs/fg)*Mg"}
-
-    mass 1 in gram
-        mass 2 in ml if{d2=true;if{m1/M1>m2*d2/M2;"m2*d2/M2*(fs/fg)*Mg";"m1/M1*(fs/fg)*Mg"};if{m1/M1>m2/M2;"m2/M2*(fs/fg)*Mg";"m1/M1*(fs/fg)*Mg"}}
-            mass 1 > mass 2 if{m1/M1>m2*d2/M2;"m2*d2/M2*(fs/fg)*Mg";"m1/M1*(fs/fg)*Mg"}
-                "m2*d2/M2*(fs/fg)*Mg"
-            mass 1 < mass 2
-                "m1/M1*(fs/fg)*Mg"
-        mass 2 in gram
-            mass 1 > mass 2 if{m1/M1>m2/M2;"m2/M2*(fs/fg)*Mg";"m1/M1*(fs/fg)*Mg"}
-                "m2/M2*(fs/fg)*Mg"
-            mass 1 < mass 2
-                "m1/M1*(fs/fg)*Mg"
-    """
 
     print("standard deviation =", round(standard_deviation.answer, 4))
     print("Mean =", round(mean.answer, 4))
