@@ -1,26 +1,45 @@
-//
 //  StringFormulaReader.swift
 //  ScheikundigeFormules
-//
-//  Created by A. Snippe on 04/11/2019.
-//  Copyright © 2019 EMSDevelopment. All rights reserved.
-//
+
+
+/// Author: Micha Snippe
+/// Date: 19-02-2020
+/// Since: 14-11-2020
+/// Version: 1.0.1
+/// Copyright: Copyright © 2019 EMSDevelopment. All rights reserved.
 
 import UIKit
 
+/**
+ This class takes a formula in string format and makes it possible to execute
+*/
 class StringFormulaReader{
+    
+    /// Actions that can be executed. Excl. functions
     let actions = ["*": multiply, "/": divide, "+": add, "-": subtract,
                    "^": power]
+    
+    /// The varaibles in the formula
     var variables: [String: AnyObject?]
+    
+    /// The executable formula
     var formula: [String]
+    
+    /// The string variant of formula
     var string_formula: String
+    
+    /// The answer after execution
     var answer: Double
+    
+    /// The answer for an if statement
     var answerBool: Bool
     
-    
+    /**
+     This function initiates the class and sets default values for the global variables
+     - Parameter formula: A formula in string format
+    */
     init(formula: String){
         // Create the class variable
-
         self.answer = 0
         self.answerBool = false
         self.string_formula = formula
@@ -28,9 +47,13 @@ class StringFormulaReader{
         self.variables = [:]
     }
     
+    /**
+     This function creates a executable formula from the string_formula
+     - Requires: self.string_formula to be set
+    */
     func create_formula(){
         // test area https://regex101.com/r/QYbGlh/2
-        let regex = try! NSRegularExpression(pattern: #"([lL][oO][gG]\d*)|([iI][fF])|([a-zA-Z]+\d*)|(\d+)|([+\-*/^])|(.)"#)
+        let regex = try! NSRegularExpression(pattern: #"([lL][oO][gG]\d*)|([iI][fF])|([\(\)\{\}+\-*\/^])(-?\d+)|([^0-9+\-*\/^\(\){}√∑=;\n<>=!]+\d*)|(.)"#)
         let range = NSRange(location: 0, length: self.string_formula.utf16.count)
         let matches = regex.matches(in: self.string_formula, range: range)
         //print(matches)
@@ -47,16 +70,55 @@ class StringFormulaReader{
                     let value = String(self.string_formula[lower..<upper])
                     self.formula.append(value)
                     
-                    if group == 3{
-                        self.variables[value] = nil
+                    if group == 5{
+                        self.variables[value] = 0 as AnyObject
                     }
                 }
             }
         }
         // Link the brackets
         self.link_brackets()
+    }
+    
+    func recreate_string_formula()->String{
         
+        let formula = unlink_brackets(formula: self.formula)
+        return formula.joined(separator: "")
+    }
+    
+    /**
+     This function will return a list of indexes of variables that are in a sum
+     - Retruns: A list of integers that point to a variable in  self.variable
+    */
+    func var_in_sum()->[String]{
+        var variableList: [String] = []
         
+        var depth = 0
+        var start_depth = 0
+        for (index, item) in formula.enumerated(){
+            var in_sum = false
+            
+            if item == "∑"{
+                start_depth = Int(formula[index+1].replacingOccurrences(of: "{", with: "", options: .literal, range: nil))!
+
+            }
+            if item == String(format:"{%i", depth+1){
+                depth += 1
+            }else if item == String(format:"}%i", depth){
+                depth -= 1
+            }
+            
+            if depth >= start_depth && start_depth != 0{
+                in_sum = true
+            }else{
+                in_sum = false
+            }
+            
+            if self.variables.keys.contains(item) && in_sum{
+                variableList.append(item)
+            }
+        }
+        return variableList
     }
     
     func link_brackets(){
@@ -90,52 +152,96 @@ class StringFormulaReader{
         
     }
     
+    func unlink_brackets(formula: [String])->[String]{
+        var formula = formula
+        var counter_curly_brackets = 1
+        var counter_brackets = 1
+
+        for (i, x) in formula.enumerated(){
+            
+            if (x == String(format: "(%i", counter_brackets)){
+                counter_brackets += 1
+                formula.remove(at: i)
+                formula.insert("(", at:i)
+            }
+            else if x == String(format: ")%i", counter_brackets){
+                formula.remove(at: i)
+                formula.insert(")", at:i)
+                counter_brackets -= 1
+            }
+            else if x == String(format: "{%i", counter_curly_brackets){
+                counter_curly_brackets += 1
+                formula.remove(at: i)
+                formula.insert("{", at:i)
+            }
+            else if x == String(format: "}%i", counter_curly_brackets){
+                formula.remove(at: i)
+                formula.insert("}", at:i)
+                counter_curly_brackets -= 1
+            }
+        }
+        return formula
+    }
+    
     func execute(formula: [String] = []){
         var formula = formula
         if formula.isEmpty{
             formula = self.formula
         }
-        let calculation_rules: [String] = [#"(\{\d+)"#, #"(\(\d+)"#, #"(log\d*)"# ,#"(\^)"#, #"(\√)"#, #"(\*)"#, #"(\/)"#, #"(\+)"#, #"(\-)"#]
+        let calculation_rules: [[String]] = [[#"(\{\d+)"#], [#"(\(\d+)"#], [#"(log\d*)"#] ,[#"(\^)"#, #"(\√)"#], [#"(\*)"#, #"(\/)"#], [#"(\+)"#, #"(\-)"#]]
 
         if !(self.variables.values.contains(where: {$0 == nil})) {
             for method in calculation_rules{
-                let method_regex = try! NSRegularExpression(pattern: method)
-                var range_formula =  NSRange(location: 0, length: formula.joined().utf16.count)
                 
-                while method_regex.matches(in: formula.joined(), range: range_formula).count > 0 && formula.count > 1{
+                var match = 0
+                var range_formula =  NSRange(location: 0, length: formula.joined().utf16.count)
+
+                for math in method{
+                    let method_regex = try! NSRegularExpression(pattern: math)
+                    match += method_regex.matches(in: formula.joined(), range: range_formula).count
+                }
+                
+                while match > 0 && formula.count > 1{
                     
                     for (index, action) in formula.enumerated(){
                         
-                        let range_action = NSRange(location: 0, length: action.utf16.count)
+                        var matches:[NSTextCheckingResult] = []
+                        for math in method{
+                            let method_regex = try! NSRegularExpression(pattern: math)
+                            let range_action = NSRange(location: 0, length: action.utf16.count)
+                            matches.append(contentsOf: method_regex.matches(in: action, range: range_action))
+                        }
                         
-                        if method_regex.matches(in: action, range: range_action).count > 0{
-                            
-                            if method == calculation_rules[1]{
-                                formula = self.brackets(index:index, formula: formula)
-                                
-                            }else if method == calculation_rules[0]{
-                                if formula[index-1] == "∑"{
-                                    formula = self.sum(index: index, formula: formula)
+                        if matches.count > 0{
+                            let match = matches[0].range(at: 1)
+                            if match.length == action.length{
+                                if method == calculation_rules[1]{
+                                    formula = self.brackets(index:index, formula: formula)
+                                    
+                                }else if method == calculation_rules[0]{
+                                    if formula[index-1] == "∑"{
+                                        formula = self.sum(index: index, formula: formula)
+                                    }
+                                    else if formula[index-1] == "if"{
+                                        formula = self.conditional(index: index, formula: formula)
+                                    }
+                                    
+                                }else if action == "√"{
+                                    formula = self.square_root(index: index, formula: formula)
+                                    
+                                }else if method == calculation_rules[2]{
+                                    formula = self.logarithm(index: index, formula: formula)
+                                }else{
+                                    formula = self.actions[action]!(self)(index, formula)
+                                    //formula.insert(index-1, self.answer)
                                 }
-                                else if formula[index-1] == "if"{
-                                    formula = self.conditional(index: index, formula: formula)
-                                }
-                                
-                            }else if action == "√"{
-                                formula = self.square_root(index: index, formula: formula)
-                                
-                            }else if method == calculation_rules[2]{
-                                formula = self.logarithm(index: index, formula: formula)
-                            }else{
-                                print(formula, action, method)
-                                formula = self.actions[action]!(self)(index, formula)
-                                //formula.insert(index-1, self.answer)
+                                range_formula =  NSRange(location: 0, length: formula.joined().utf16.count)
+                                break
                             }
-                            range_formula =  NSRange(location: 0, length: formula.joined().utf16.count)
-                            break
-                            
                         }
                     }
+                    match -= 1
+                
                 }
             }
             
@@ -247,6 +353,7 @@ class StringFormulaReader{
     }
 
     func logarithm(index: Int, formula: [String]) -> [String]{
+        print("Logarithm")
         let value1 = self.get_variable_value(key: formula[index+1])
         let base_string = formula[index].replacingOccurrences(of: "log", with: "", options: .literal, range: nil)
         
@@ -314,7 +421,8 @@ class StringFormulaReader{
         
         let function = try! NSRegularExpression(pattern: #"\{\d+"#)
         let range = NSRange(location: 0, length: s_formula.joined().utf16.count)
-
+        
+        // Look if there is another function in the sum formula
         if function.matches(in: s_formula.joined(), range: range).count > 0{
             start = formula.firstIndex(of: String(format:"{%i", bracket_number+1))
             end = formula.firstIndex(of: String(format:"}%i", bracket_number+1))
@@ -322,8 +430,7 @@ class StringFormulaReader{
             self.execute(formula: s_formula)
 
             answers.append(self.answer)
-        }
-        else{
+        }else{
             for x in 0..<(self.variables["n"] as! Int){
                 s_formula = Array(formula[start!+1..<end!])
                 for y in s_formula{
@@ -343,8 +450,6 @@ class StringFormulaReader{
                 self.execute(formula: s_formula)
                 answers.append(self.answer)
             }
-
-            print("sum")
             
             //print("{}={}".format("+".join([str(x) for x in answers]), sum(answers)))
 
@@ -358,6 +463,7 @@ class StringFormulaReader{
 
     func conditional(index: Int, formula: [String]) -> [String]{
         print("conditional")
+        print(formula[index])
 
         let logic = ["<": self.smaller, "<=": self.smaller_or_equal, "=": self.equal,
                      ">=": self.larger_or_equal, ">": self.larger, "!=": self.not_equal]
@@ -392,8 +498,6 @@ class StringFormulaReader{
                     continue
                 }
             }
-                
-
             form[counter].append(x)
         }
 
@@ -414,7 +518,7 @@ class StringFormulaReader{
         else{
             self.execute(formula: form[3])
         }
-
+        print(formula[end!])
         let formula = self.remove_from_formula(start: start!-1, end: end!, formula: formula)
 
         return formula
