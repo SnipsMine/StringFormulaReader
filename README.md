@@ -9,7 +9,7 @@ To use this the python class add it to your current repository and import the re
 The reader takes 1 argument this argument must have be a string. This string must contain the formula you want to execute and must folow the formating rules layed out in the chapter format. When the reader is initialized just run the execute function. The anwser is saved in the anwser variable.  
 **Simple Example:**
 ```python3
-from string_formula_reader import StringFormulaReader
+from string_formula import StringFormulaReader
 
 # Initialize the reader
 reader = StringFormulaReader("1+2")
@@ -24,7 +24,7 @@ print(reader.anwser) # Prints 3
 When you want to use variables in your formula you first need to give them a value. To do this you get the variables variable van de reader and with the variable you want to set as the key.  
 **Variable Example:**
 ```python3
-from string_formula_reader import StringFormulaReader
+from string_formula import StringFormulaReader
 
 # Initialize the reader
 reader = StringFormulaReader("a+b")
